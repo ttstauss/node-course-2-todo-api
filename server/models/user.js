@@ -9,4 +9,4 @@ const User = mongoose.model('User', {
   }
 })
 
-module.exports = { mongoose }
+module.exports = { User }
