@@ -1,3 +1,4 @@
+const _ = require('lodash')
 const express = require('express')
 const bodyParser = require('body-parser')
 const { ObjectID } = require('mongodb')
@@ -20,9 +21,7 @@ app.post('/todos', (req, res) => {
     doc => {
       res.send(doc)
     },
-    e => {
-      res.status(400).send(e)
-    }
+    e => res.status(400).send(e)
   )
 })
 
@@ -31,9 +30,7 @@ app.get('/todos', (req, res) => {
     todos => {
       res.send({ todos })
     },
-    e => {
-      res.status(400).send(e)
-    }
+    e => res.status(400).send(e)
   )
 })
 
@@ -52,9 +49,7 @@ app.get('/todos/:id', (req, res) => {
         }
         res.send({ todo })
       },
-      e => {
-        return res.status(400).send()
-      }
+      e => res.status(400).send()
     )
     .catch(e => res.status(400).send())
 })
@@ -74,9 +69,36 @@ app.delete('/todos/:id', (req, res) => {
         }
         res.send({ todo })
       },
-      e => {
-        return res.status(400).send()
-      }
+      e => res.status(400).send()
+    )
+    .catch(e => res.status(400).send())
+})
+
+app.patch('/todos/:id', (req, res) => {
+  const id = req.params.id
+  const body = _.pick(req.body, ['text', 'completed'])
+
+  if (!ObjectID.isValid(id)) {
+    return res.status(404).send()
+  }
+
+  if (_.isBoolean(body.completed) && body.completed) {
+    body.completedAt = new Date().getTime()
+  } else {
+    body.completed = false
+    body.completedAt = null
+  }
+
+  Todo.findByIdAndUpdate(id, { $set: body }, { new: true })
+    .then(
+      todo => {
+        if (!todo) {
+          return res.status(404).send()
+        }
+
+        res.send({ todo })
+      },
+      e => res.status(400).send()
     )
     .catch(e => res.status(400).send())
 })
