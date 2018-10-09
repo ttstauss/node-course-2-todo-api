@@ -284,7 +284,7 @@ describe('POST /users', () => {
   )
 
   it(
-    'should return validation erros if request invalid',
+    'should return validation errors if request invalid',
     mochaAsync(async () => {
       const response = await request(app)
         .post('/users')

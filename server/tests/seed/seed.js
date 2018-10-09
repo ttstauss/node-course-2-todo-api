@@ -36,15 +36,13 @@ const users = [
   }
 ]
 
-const populateUsers = done => {
-  User.deleteMany({})
-    .then(() => {
-      const userOne = new User(users[0]).save()
-      const userTwo = new User(users[1]).save()
+const populateUsers = async () => {
+  await User.deleteMany({})
 
-      return Promise.all([userOne, userTwo])
-    })
-    .then(() => done())
+  const userOne = await new User(users[0]).save()
+  const userTwo = await new User(users[1]).save()
+
+  await Promise.all([userOne, userTwo])
 }
 
 const todos = [
@@ -62,12 +60,9 @@ const todos = [
   }
 ]
 
-const populateTodos = done => {
-  Todo.deleteMany({})
-    .then(() => {
-      return Todo.insertMany(todos)
-    })
-    .then(() => done())
+const populateTodos = async () => {
+  await Todo.deleteMany({})
+  await Todo.insertMany(todos)
 }
 
 module.exports = { users, populateUsers, todos, populateTodos }
