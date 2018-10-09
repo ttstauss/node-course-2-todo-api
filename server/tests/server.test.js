@@ -7,358 +7,355 @@ const { Todo } = require('./../models/todo')
 const { User } = require('./../models/user')
 const { users, populateUsers, todos, populateTodos } = require('./seed/seed')
 
+// higher order function for handling rejections
+// https://labs.chiedo.com/blog/async-mocha-tests/
+const mochaAsync = fn => {
+  return done => {
+    fn.call().then(done, err => {
+      done(err)
+    })
+  }
+}
+
 beforeEach(populateUsers)
 beforeEach(populateTodos)
 
 describe('POST /todos', () => {
-  it('should create a new todo', done => {
-    const text = 'Test todo text'
+  it(
+    'should create a new todo',
+    mochaAsync(async () => {
+      expect.assertions(4)
+      const text = 'Test todo text'
 
-    request(app)
-      .post('/todos')
-      .set('x-auth', users[0].tokens[0].token)
-      .send({ text })
-      .expect(200)
-      .expect(res => {
-        expect(res.body.text).toBe(text)
-      })
-      .end((err, res) => {
-        if (err) {
-          return done(err)
-        }
+      const response = await request(app)
+        .post('/todos')
+        .set('x-auth', users[0].tokens[0].token)
+        .send({ text })
 
-        Todo.find({ text })
-          .then(todos => {
-            expect(todos.length).toBe(1)
-            expect(todos[0].text).toBe(text)
-            done()
-          })
-          .catch(e => done(e))
-      })
-  })
+      expect(response.status).toBe(200)
+      expect(response.body.text).toBe(text)
 
-  it('should not create todo with invalid body data', done => {
-    request(app)
-      .post('/todos')
-      .set('x-auth', users[0].tokens[0].token)
-      .send({})
-      .expect(400)
-      .end((err, res) => {
-        if (err) {
-          return done(err)
-        }
+      const todos = await Todo.find({ text })
+      expect(todos.length).toBe(1)
+      expect(todos[0].text).toBe(text)
+    })
+  )
 
-        Todo.find()
-          .then(todos => {
-            expect(todos.length).toBe(2)
-            done()
-          })
-          .catch(e => done(e))
-      })
-  })
+  it(
+    'should not create todo with invalid body data',
+    mochaAsync(async () => {
+      const response = await request(app)
+        .post('/todos')
+        .set('x-auth', users[0].tokens[0].token)
+        .send({})
+
+      expect(response.status).toBe(400)
+
+      const todos = await Todo.find()
+
+      expect(todos.length).toBe(2)
+    })
+  )
 })
 
 describe('GET /todos', () => {
-  it('should get all todos', done => {
-    request(app)
-      .get('/todos')
-      .set('x-auth', users[0].tokens[0].token)
-      .expect(200)
-      .expect(res => {
-        expect(res.body.todos.length).toBe(1)
-      })
-      .end(done)
-  })
+  it(
+    'should get all todos',
+    mochaAsync(async () => {
+      const response = await request(app)
+        .get('/todos')
+        .set('x-auth', users[0].tokens[0].token)
+
+      expect(response.status).toBe(200)
+      expect(response.body.todos.length).toBe(1)
+    })
+  )
 })
 
 describe('GET /todos/:id', () => {
-  it('should return todo doc', done => {
-    request(app)
-      .get(`/todos/${todos[0]._id.toHexString()}`)
-      .set('x-auth', users[0].tokens[0].token)
-      .expect(200)
-      .expect(res => {
-        expect(res.body.todo.text).toBe(todos[0].text)
-      })
-      .end(done)
-  })
+  it(
+    'should return todo doc',
+    mochaAsync(async () => {
+      const response = await request(app)
+        .get(`/todos/${todos[0]._id.toHexString()}`)
+        .set('x-auth', users[0].tokens[0].token)
 
-  it('should not return todo doc created by other user', done => {
-    request(app)
-      .get(`/todos/${todos[1]._id.toHexString()}`)
-      .set('x-auth', users[0].tokens[0].token)
-      .expect(404)
-      .end(done)
-  })
+      expect(response.status).toBe(200)
+      expect(response.body.todo.text).toBe(todos[0].text)
+    })
+  )
 
-  it('should return a 404 if todo not found', done => {
-    const hexId = new ObjectID().toHexString()
+  it(
+    'should not return todo doc created by other user',
+    mochaAsync(async () => {
+      const response = await request(app)
+        .get(`/todos/${todos[1]._id.toHexString()}`)
+        .set('x-auth', users[0].tokens[0].token)
 
-    request(app)
-      .get(`/todos/${hexId}`)
-      .set('x-auth', users[0].tokens[0].token)
-      .expect(404)
-      .end(done)
-  })
+      expect(response.status).toBe(404)
+    })
+  )
 
-  it('should return 404 for non-object ids', done => {
-    request(app)
-      .get('/todos/abc123')
-      .set('x-auth', users[0].tokens[0].token)
-      .expect(404)
-      .end(done)
-  })
+  it(
+    'should return a 404 if todo not found',
+    mochaAsync(async () => {
+      const hexId = new ObjectID().toHexString()
+
+      const response = await request(app)
+        .get(`/todos/${hexId}`)
+        .set('x-auth', users[0].tokens[0].token)
+
+      expect(response.status).toBe(404)
+    })
+  )
+
+  it(
+    'should return 404 for non-object ids',
+    mochaAsync(async () => {
+      const response = await request(app)
+        .get('/todos/abc123')
+        .set('x-auth', users[0].tokens[0].token)
+
+      expect(response.status).toBe(404)
+    })
+  )
 })
 
 describe('DELETE /todos/:id', () => {
-  it('should remove a todo', done => {
-    const hexId = todos[1]._id.toHexString()
+  it(
+    'should remove a todo',
+    mochaAsync(async () => {
+      const hexId = todos[1]._id.toHexString()
 
-    request(app)
-      .delete(`/todos/${hexId}`)
-      .set('x-auth', users[1].tokens[0].token)
-      .expect(200)
-      .expect(res => {
-        expect(res.body.todo._id).toBe(hexId)
-      })
-      .end((err, res) => {
-        if (err) {
-          return done(err)
-        }
+      const response = await request(app)
+        .delete(`/todos/${hexId}`)
+        .set('x-auth', users[1].tokens[0].token)
 
-        Todo.findById(hexId)
-          .then(todo => {
-            expect(todo).toBeFalsy()
-            done()
-          })
-          .catch(e => done(e))
-      })
-  })
+      expect(response.status).toBe(200)
+      expect(response.body.todo._id).toBe(hexId)
 
-  it('should not remove a todo created by other user', done => {
-    const hexId = todos[0]._id.toHexString()
+      const todo = await Todo.findById(hexId)
 
-    request(app)
-      .delete(`/todos/${hexId}`)
-      .set('x-auth', users[1].tokens[0].token)
-      .expect(404)
-      .end((err, res) => {
-        if (err) {
-          return done(err)
-        }
+      expect(todo).toBeFalsy()
+    })
+  )
 
-        Todo.findById(hexId)
-          .then(todo => {
-            expect(todo).toBeTruthy()
-            done()
-          })
-          .catch(e => done(e))
-      })
-  })
+  it(
+    'should not remove a todo created by other user',
+    mochaAsync(async () => {
+      const hexId = todos[0]._id.toHexString()
 
-  it('should return 404 if todo not found', done => {
-    const hexId = new ObjectID().toHexString()
+      const response = await request(app)
+        .delete(`/todos/${hexId}`)
+        .set('x-auth', users[1].tokens[0].token)
 
-    request(app)
-      .get(`/todos/${hexId}`)
-      .set('x-auth', users[1].tokens[0].token)
-      .expect(404)
-      .end(done)
-  })
+      expect(response.status).toBe(404)
 
-  it('should return 404 if object id is invalid', done => {
-    request(app)
-      .get('/todos/abc123')
-      .set('x-auth', users[1].tokens[0].token)
-      .expect(404)
-      .end(done)
-  })
+      const todo = await Todo.findById(hexId)
+
+      expect(todo).toBeTruthy()
+    })
+  )
+
+  it(
+    'should return 404 if todo not found',
+    mochaAsync(async () => {
+      const hexId = new ObjectID().toHexString()
+
+      const response = await request(app)
+        .get(`/todos/${hexId}`)
+        .set('x-auth', users[1].tokens[0].token)
+
+      expect(response.status).toBe(404)
+    })
+  )
+
+  it(
+    'should return 404 if object id is invalid',
+    mochaAsync(async () => {
+      const response = await request(app)
+        .get('/todos/abc123')
+        .set('x-auth', users[1].tokens[0].token)
+
+      expect(response.status).toBe(404)
+    })
+  )
 })
 
 describe('PATCH /todos/:id', () => {
-  it('should update the todo', done => {
-    const hexId = todos[0]._id.toHexString()
-    const text = 'This should be the new text'
+  it(
+    'should update the todo',
+    mochaAsync(async () => {
+      const hexId = todos[0]._id.toHexString()
+      const text = 'This should be the new text'
 
-    request(app)
-      .patch(`/todos/${hexId}`)
-      .set('x-auth', users[0].tokens[0].token)
-      .send({ text, completed: true })
-      .expect(200)
-      .expect(res => {
-        expect(res.body.todo.text).toBe(text)
-        expect(res.body.todo.completed).toBe(true)
-        expect(typeof res.body.todo.completedAt).toBe('number')
-      })
-      .end(done)
-  })
+      const response = await request(app)
+        .patch(`/todos/${hexId}`)
+        .set('x-auth', users[0].tokens[0].token)
+        .send({ text, completed: true })
 
-  it('should not update todo created by other user', done => {
-    const hexId = todos[0]._id.toHexString()
-    const text = 'This should be the new text'
+      expect(response.status).toBe(200)
+      expect(response.body.todo.text).toBe(text)
+      expect(response.body.todo.completed).toBe(true)
+      expect(typeof response.body.todo.completedAt).toBe('number')
+    })
+  )
 
-    request(app)
-      .patch(`/todos/${hexId}`)
-      .set('x-auth', users[1].tokens[0].token)
-      .send({ text, completed: true })
-      .expect(404)
-      .end(done)
-  })
+  it(
+    'should not update todo created by other user',
+    mochaAsync(async () => {
+      const hexId = todos[0]._id.toHexString()
+      const text = 'This should be the new text'
 
-  it('should clear completedAt when todo is not completed', done => {
-    const hexId = todos[1]._id.toHexString()
-    const text = 'This should be the new text'
+      const response = await request(app)
+        .patch(`/todos/${hexId}`)
+        .set('x-auth', users[1].tokens[0].token)
+        .send({ text, completed: true })
 
-    request(app)
-      .patch(`/todos/${hexId}`)
-      .set('x-auth', users[1].tokens[0].token)
-      .send({ text, completed: false })
-      .expect(200)
-      .expect(res => {
-        expect(res.body.todo.text).toBe(text)
-        expect(res.body.todo.completed).toBe(false)
-        expect(res.body.completedAt).toBeFalsy()
-      })
-      .end(done)
-  })
+      expect(response.status).toBe(404)
+    })
+  )
+
+  it(
+    'should clear completedAt when todo is not completed',
+    mochaAsync(async () => {
+      const hexId = todos[1]._id.toHexString()
+      const text = 'This should be the new text'
+
+      const response = await request(app)
+        .patch(`/todos/${hexId}`)
+        .set('x-auth', users[1].tokens[0].token)
+        .send({ text, completed: false })
+
+      expect(response.status).toBe(200)
+      expect(response.body.todo.text).toBe(text)
+      expect(response.body.todo.completed).toBe(false)
+      expect(response.body.completedAt).toBeFalsy()
+    })
+  )
 })
 
 describe('GET /users/me', () => {
-  it('should return user if authenticated', done => {
-    request(app)
-      .get('/users/me')
-      .set('x-auth', users[0].tokens[0].token)
-      .expect(200)
-      .expect(res => {
-        expect(res.body._id).toBe(users[0]._id.toHexString())
-        expect(res.body.email).toBe(users[0].email)
-      })
-      .end(done)
-  })
+  it(
+    'should return user if authenticated',
+    mochaAsync(async () => {
+      const response = await request(app)
+        .get('/users/me')
+        .set('x-auth', users[0].tokens[0].token)
 
-  it('should return 401 if not authenticated', done => {
-    request(app)
-      .get('/users/me')
-      .expect(401)
-      .expect(res => {
-        expect(res.body).toEqual({})
-      })
-      .end(done)
-  })
+      expect(response.status).toBe(200)
+      expect(response.body._id).toBe(users[0]._id.toHexString())
+      expect(response.body.email).toBe(users[0].email)
+    })
+  )
+
+  it(
+    'should return 401 if not authenticated',
+    mochaAsync(async () => {
+      const response = await request(app).get('/users/me')
+
+      expect(response.status).toBe(401)
+      expect(response.body).toEqual({})
+    })
+  )
 })
 
 describe('POST /users', () => {
-  it('should create a user', done => {
-    const email = 'test3@test.com'
-    const password = 'abc123!'
+  it(
+    'should create a user',
+    mochaAsync(async () => {
+      const email = 'test3@test.com'
+      const password = 'abc123!'
 
-    request(app)
-      .post('/users')
-      .send({ email, password })
-      .expect(200)
-      .expect(res => {
-        expect(res.headers['x-auth']).toBeTruthy()
-        expect(res.body._id).toBeTruthy()
-        expect(res.body.email).toBe(email)
-      })
-      .end(err => {
-        if (err) {
-          return done(err)
-        }
+      const response = await request(app)
+        .post('/users')
+        .send({ email, password })
 
-        User.findOne({ email })
-          .then(user => {
-            expect(user).toBeTruthy()
-            expect(user.password).not.toBe(password)
-            done()
-          })
-          .catch(e => done(e))
-      })
-  })
+      expect(response.status).toBe(200)
+      expect(response.headers['x-auth']).toBeTruthy()
+      expect(response.body._id).toBeTruthy()
+      expect(response.body.email).toBe(email)
 
-  it('should return validation erros if request invalid', done => {
-    request(app)
-      .post('/users')
-      .send({ email: 'bademail', password: 'abc' })
-      .expect(400)
-      .end(done)
-  })
+      const user = await User.findOne({ email })
 
-  it('should not create user if email in use', done => {
-    request(app)
-      .post('/users')
-      .send({ email: users[0].email, password: 'abc123!' })
-      .expect(400)
-      .end(done)
-  })
+      expect(user).toBeTruthy()
+      expect(user.password).not.toBe(password)
+    })
+  )
+
+  it(
+    'should return validation erros if request invalid',
+    mochaAsync(async () => {
+      const response = await request(app)
+        .post('/users')
+        .send({ email: 'bademail', password: 'abc' })
+
+      expect(response.status).toBe(400)
+    })
+  )
+
+  it(
+    'should not create user if email in use',
+    mochaAsync(async () => {
+      const response = await request(app)
+        .post('/users')
+        .send({ email: users[0].email, password: 'abc123!' })
+
+      expect(response.status).toBe(400)
+    })
+  )
 })
 
 describe('POST /users/login', () => {
-  it('should login user and return auth token', done => {
-    request(app)
-      .post('/users/login')
-      .send({ email: users[1].email, password: users[1].password })
-      .expect(200)
-      .expect(res => {
-        expect(res.header['x-auth']).toBeTruthy()
-      })
-      .end((err, res) => {
-        if (err) {
-          return done(err)
-        }
+  it(
+    'should login user and return auth token',
+    mochaAsync(async () => {
+      const response = await request(app)
+        .post('/users/login')
+        .send({ email: users[1].email, password: users[1].password })
 
-        User.findById(users[1]._id)
-          .then(user => {
-            expect(user.toObject().tokens[1]).toMatchObject({
-              access: 'auth',
-              token: res.headers['x-auth']
-            })
-            done()
-          })
-          .catch(e => done(e))
-      })
-  })
+      expect(response.status).toBe(200)
+      expect(response.header['x-auth']).toBeTruthy()
 
-  it('should reject invalid login', done => {
-    request(app)
-      .post('/users/login')
-      .send({ email: users[1].email, password: users[1].password + '123' })
-      .expect(400)
-      .expect(res => {
-        expect(res.header['x-auth']).toBeFalsy()
-      })
-      .end((err, res) => {
-        if (err) {
-          return done(err)
-        }
+      const user = await User.findById(users[1]._id)
 
-        User.findById(users[1]._id)
-          .then(user => {
-            expect(user.tokens.length).toBe(1)
-            done()
-          })
-          .catch(e => done(e))
+      expect(user.toObject().tokens[1]).toMatchObject({
+        access: 'auth',
+        token: response.headers['x-auth']
       })
-  })
+    })
+  )
+
+  it(
+    'should reject invalid login',
+    mochaAsync(async () => {
+      const response = await request(app)
+        .post('/users/login')
+        .send({ email: users[1].email, password: users[1].password + '123' })
+
+      expect(response.status).toBe(400)
+      expect(response.header['x-auth']).toBeFalsy()
+
+      const user = await User.findById(users[1]._id)
+
+      expect(user.tokens.length).toBe(1)
+    })
+  )
 })
 
 describe('DELETE /users/me/token', () => {
-  it('should remove auth token on logout', done => {
-    request(app)
-      .delete('/users/me/token')
-      .set('x-auth', users[0].tokens[0].token)
-      .expect(200)
-      .end((err, res) => {
-        if (err) {
-          return done(err)
-        }
+  it(
+    'should remove auth token on logout',
+    mochaAsync(async () => {
+      const response = await request(app)
+        .delete('/users/me/token')
+        .set('x-auth', users[0].tokens[0].token)
 
-        User.findById(users[0]._id)
-          .then(user => {
-            expect(user.tokens.length).toBe(0)
-            done()
-          })
-          .catch(e => done(e))
-      })
-  })
+      expect(response.status).toBe(200)
+
+      const user = await User.findById(users[0]._id)
+
+      expect(user.tokens.length).toBe(0)
+    })
+  )
 })
