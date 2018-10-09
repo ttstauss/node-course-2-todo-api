@@ -42,17 +42,18 @@ UserSchema.methods.toJSON = function() {
   return _.pick(userObject, ['_id', 'email'])
 }
 
-UserSchema.methods.generateAuthToken = function() {
-  const user = this
-  const access = 'auth'
-  const token = jwt
-    .sign({ _id: user._id.toHexString(), access }, process.env.JWT_SECRET)
-    .toString()
+UserSchema.methods.generateAuthToken = async function() {
+  try {
+    const user = this
+    const access = 'auth'
+    const token = jwt
+      .sign({ _id: user._id.toHexString(), access }, process.env.JWT_SECRET)
+      .toString()
 
-  user.tokens.push({ access, token })
-  return user.save().then(() => {
+    user.tokens.push({ access, token })
+    await user.save()
     return token
-  })
+  } catch (e) {}
 }
 
 UserSchema.methods.removeToken = function(token) {
@@ -65,37 +66,37 @@ UserSchema.methods.removeToken = function(token) {
   })
 }
 
-UserSchema.statics.findByToken = function(token) {
-  const User = this
-  let decoded
-
+UserSchema.statics.findByToken = async function(token) {
   try {
-    decoded = jwt.verify(token, process.env.JWT_SECRET)
-  } catch (e) {
-    return Promise.reject()
-  }
+    const User = this
 
-  return User.findOne({
-    _id: decoded._id,
-    'tokens.token': token,
-    'tokens.access': 'auth'
-  })
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+
+    return User.findOne({
+      _id: decoded._id,
+      'tokens.token': token,
+      'tokens.access': 'auth'
+    })
+  } catch (e) {}
 }
 
-UserSchema.statics.findByCredentials = function(email, password) {
-  const User = this
+UserSchema.statics.findByCredentials = async function(email, password) {
+  try {
+    const User = this
 
-  return User.findOne({ email }).then(user => {
+    const user = await User.findOne({ email })
+
     if (!user) {
-      return Promise.reject()
+      throw new Error('user not found')
     }
 
-    return new Promise((resolve, reject) => {
-      bcrypt.compare(password, user.password, (err, res) => {
-        res ? resolve(user) : reject()
-      })
-    })
-  })
+    const res = await bcrypt.compare(password, user.password)
+    if (res) {
+      return user
+    } else {
+      throw new Error('invalid password')
+    }
+  } catch (e) {}
 }
 
 UserSchema.pre('save', function(next) {
